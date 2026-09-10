@@ -1,0 +1,11 @@
+# OS cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# local Claude Code session state (launch.json is kept, it is useful)
+.claude/settings.local.json

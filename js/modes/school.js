@@ -322,6 +322,40 @@
     lede.innerHTML = rich(c.summary);
     root.appendChild(lede);
 
+    // the plain numbers, from the same reference data the map decks use
+    const geo = (window.DATA_WORLD.features
+      .find(f => f.properties.iso2 === code) || { properties: {} }).properties;
+    const d = (window.DATA_COUNTRY_INFO || {})[geo.id];
+    if (d) {
+      const stats = [];
+      if (d.capital) stats.push(['Capital', d.capital]);
+      if (d.population) {
+        stats.push(['Population', d.population.toLocaleString('en-US')
+          + (d.popYear ? ' (' + d.popYear + ')' : '')]);
+      }
+      if (d.currency) {
+        stats.push(['Currency', d.currency.name
+          + (d.currency.symbol ? '  ' + d.currency.symbol : '') + '  · ' + d.currency.code]);
+      }
+      if (d.area) stats.push(['Area', d.area.toLocaleString('en-US') + ' km²']);
+      if (d.languages && d.languages.length) {
+        stats.push([d.languages.length > 1 ? 'Languages' : 'Language', d.languages.join(', ')]);
+      }
+      if (d.borders) {
+        stats.push(['Land borders', d.borders.length
+          ? String(d.borders.length) + (d.landlocked ? ' (landlocked)' : '')
+          : 'None']);
+      }
+      const dl = el('dl', 'facts');
+      dl.style.margin = '0 0 22px';
+      for (const [k, v] of stats) {
+        const row = el('div', 'fact');
+        row.innerHTML = '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>';
+        dl.appendChild(row);
+      }
+      root.appendChild(dl);
+    }
+
     const rows = [
       ['Script', c.script], ['Road lines', c.lines], ['Bollards', c.bollards],
       ['Utility poles', c.poles], ['Licence plates', c.plates], ['Signage', c.signage],

@@ -36,6 +36,7 @@
       missed: [],           // { item, guessed }
       answered: false,
       current: null,
+      pending: null,        // clicked but not yet confirmed, in Find it
     };
 
     /* --------------------------------------------------------------- DOM */
@@ -118,6 +119,7 @@
 
     function next() {
       state.answered = false;
+      state.pending = null;
       map.clearStates();
       map.setInteractive(true);
       showNames(false);            // no free answers while the question is live
@@ -138,7 +140,55 @@
       promptEl.innerHTML = 'Find <strong>' + esc(item.name) + '</strong>'
         + (item.sub ? '<span class="prompt-sub">' + esc(item.sub) + '</span>' : '');
       panel.innerHTML = '<div class="eyebrow">Question ' + (state.idx + 1) + ' of ' + queue.length + '</div>'
-        + '<p class="answer-sub" style="margin-top:8px">Click it on the map.</p>';
+        + '<p class="answer-sub" style="margin-top:8px">Click it on the map, '
+        + 'then confirm.</p>';
+    }
+
+    /**
+     * First click marks a pick, second confirms it. Deliberately never names
+     * the thing you clicked — that would turn Find it into a game of clicking
+     * around and reading labels until the right name appears.
+     */
+    function selectPending(id) {
+      if (state.pending) map.setState(state.pending, null);
+      state.pending = id;
+      map.setState(id, 'pending');
+
+      panel.innerHTML = '<div class="eyebrow">Question ' + (state.idx + 1)
+        + ' of ' + queue.length + '</div>';
+
+      const q = el('p', 'answer-sub');
+      q.style.margin = '8px 0 12px';
+      q.innerHTML = 'Locked on the highlighted one. Still '
+        + '<strong>' + esc(state.current.name) + '</strong>?';
+      panel.appendChild(q);
+
+      // The buttons live in their own bar because on a narrow screen it is
+      // pinned to the bottom of the viewport — on a short phone the side panel
+      // falls below the fold, and the one control you need must not.
+      const bar = el('div', 'confirm-bar');
+
+      const yes = el('button', 'btn btn-primary', 'Confirm');
+      yes.onclick = () => resolve(id);
+
+      const again = el('button', 'btn btn-ghost btn-sm', 'Pick another');
+      again.onclick = () => {
+        map.setState(state.pending, null);
+        state.pending = null;
+        askLocate(state.current);
+      };
+
+      bar.append(yes, again);
+      panel.appendChild(bar);
+
+      const hint = el('p', 'answer-sub');
+      hint.style.cssText = 'margin-top:10px;font-size:12px';
+      hint.textContent = 'Or click the same place again to confirm.';
+      panel.appendChild(hint);
+
+      // focus rather than a key handler, so Enter and Space work natively;
+      // preventScroll keeps a phone from jumping away from the map
+      try { yes.focus({ preventScroll: true }); } catch (e) { yes.focus(); }
     }
 
     function askIdentify(item) {
@@ -172,22 +222,24 @@
 
     /** Distractors, biased toward neighbours so the choice is actually hard. */
     function pickChoices(item) {
-      const sameGroup = items.filter(i => i.id !== item.id && sharesFact(i, item));
-      const others = items.filter(i => i.id !== item.id && !sharesFact(i, item));
-      const pool = window.Store.shuffle(sameGroup.slice()).concat(window.Store.shuffle(others.slice()));
+      const near = items.filter(i => i.id !== item.id && sameGroup(i, item));
+      const far = items.filter(i => i.id !== item.id && !sameGroup(i, item));
+      const pool = window.Store.shuffle(near.slice()).concat(window.Store.shuffle(far.slice()));
       return window.Store.shuffle([item].concat(pool.slice(0, OPTIONS - 1)));
     }
 
-    function sharesFact(a, b) {
-      const fa = a.facts && a.facts[0], fb = b.facts && b.facts[0];
-      return !!(fa && fb && fa[0] === fb[0] && fa[1] === fb[1]);
+    // `group` is the containing region (or prefecture/département for a city),
+    // so the wrong answers offered are the ones actually easy to mix up.
+    function sameGroup(a, b) {
+      return !!(a.group && b.group && a.group === b.group);
     }
 
     /* ------------------------------------------------------------ answer */
     function onPick(id) {
       if (mode === 'learn') { showInfo(byId.get(id) || { id, name: id, facts: [] }); return; }
       if (mode !== 'locate' || state.answered) return;
-      resolve(id);
+      if (state.pending === id) resolve(id);   // second click on the same place
+      else selectPending(id);
     }
 
     function resolve(guessId) {
@@ -266,6 +318,7 @@
       if (item.facts && item.facts.length) {
         const dl = el('dl', 'facts');
         for (const [k, v] of item.facts) {
+          if (v == null || v === '') continue;
           const row = el('div', 'fact');
           const dt = document.createElement('dt'); dt.textContent = k;
           const dd = document.createElement('dd'); dd.textContent = v;
@@ -273,6 +326,12 @@
           dl.appendChild(row);
         }
         box.appendChild(dl);
+      }
+      if (item.note) {
+        const note = el('div', 'did-you-know');
+        note.innerHTML = '<span class="dyk-tag">Worth knowing</span>'
+          + '<p>' + esc(item.note) + '</p>';
+        box.appendChild(note);
       }
       return box;
     }

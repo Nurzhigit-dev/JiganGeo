@@ -22,6 +22,9 @@
   const NARROW = '(max-width: 860px)';
   const DOT_R = 4.5, DOT_HIT = 11;  // city marker: visible radius, click radius
   const NS = 'http://www.w3.org/2000/svg';
+  // every highlight a shape can carry; listed once so adding one cannot leave
+  // a stale class behind
+  const STATE_CLASSES = ['is-correct', 'is-wrong', 'is-target', 'is-pending', 'is-hint', 'is-dim'];
 
   class MapView {
     constructor(container) {
@@ -308,7 +311,7 @@
 
     _paint(id, state) {
       for (const el of this._elems(id)) {
-        el.classList.remove('is-correct', 'is-wrong', 'is-target', 'is-hint', 'is-dim');
+        el.classList.remove(...STATE_CLASSES);
         if (state) el.classList.add('is-' + state);
       }
     }
@@ -320,8 +323,7 @@
 
     clearStates() {
       this.states.clear();
-      const strip = el =>
-        el.classList.remove('is-correct', 'is-wrong', 'is-target', 'is-hint', 'is-dim');
+      const strip = el => el.classList.remove(...STATE_CLASSES);
       for (const list of this.paths.values()) list.forEach(strip);
       if (this.dots) for (const el of this.dots.values()) strip(el);
     }

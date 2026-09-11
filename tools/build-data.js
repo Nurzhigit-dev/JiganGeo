@@ -189,6 +189,87 @@ function buildFrance() {
   return { regions: regions, departments: departments };
 }
 
+/* -------------------------------------------------------------- COUNTRY INFO */
+/**
+ * The plain reference card for a country: capital, money, size, who it touches.
+ * mledoze/countries carries everything except population, which comes from the
+ * World Bank so the figure is current rather than whatever year the static
+ * dataset was frozen at.
+ */
+// Entities that ISO 3166 does not list (so mledoze has no row) and territories
+// the World Bank does not report on. Figures are round approximations, and the
+// UI does not claim otherwise.
+const MANUAL_INFO = {
+  XKX: {
+    capital: 'Pristina', currency: { code: 'EUR', name: 'Euro', symbol: '€' },
+    area: 10887, languages: ['Albanian', 'Serbian'], phone: '+383',
+    population: 1600000, popYear: '2024 est.', borders: ['ALB', 'MKD', 'MNE', 'SRB'],
+    landlocked: true,
+  },
+  XNC: {
+    capital: 'North Nicosia', currency: { code: 'TRY', name: 'Turkish lira', symbol: '₺' },
+    area: 3355, languages: ['Turkish'], phone: '+90',
+    population: 390000, popYear: '2024 est.', borders: ['CYP'], landlocked: false,
+  },
+  XSO: {
+    capital: 'Hargeisa', currency: { code: 'SLS', name: 'Somaliland shilling', symbol: 'Sl' },
+    area: 176120, languages: ['Somali', 'Arabic', 'English'], phone: '+252',
+    population: 5700000, popYear: '2024 est.', borders: ['DJI', 'ETH', 'SOM'],
+    landlocked: false,
+  },
+};
+// Populations the World Bank does not publish
+const MANUAL_POP = {
+  TWN: { value: 23400000, year: '2025 est.' },
+  ESH: { value: 600000, year: '2024 est.' },
+  FLK: { value: 3700, year: '2021 census' },
+};
+
+function buildCountryInfo(worldFC) {
+  const src = read('countries-mledoze.json');
+  const byCca3 = new Map(src.map(c => [c.cca3, c]));
+
+  const wb = read('worldbank-pop.json')[1] || [];
+  const pop = new Map();
+  for (const row of wb) {
+    if (row.countryiso3code && row.value) {
+      pop.set(row.countryiso3code, { value: Math.round(row.value), year: row.date });
+    }
+  }
+
+  const out = {};
+  const missing = [];
+  for (const f of worldFC.features) {
+    const id = f.properties.id;
+    if (MANUAL_INFO[id]) { out[id] = MANUAL_INFO[id]; continue; }
+    const c = byCca3.get(id);
+    if (!c) { missing.push(f.properties.name); continue; }
+
+    const cur = Object.entries(c.currencies || {})[0];
+    const p = pop.get(id) || MANUAL_POP[id];
+    const entry = {
+      capital: (c.capital && c.capital[0]) || null,
+      currency: cur ? { code: cur[0], name: cur[1].name, symbol: cur[1].symbol || '' } : null,
+      area: c.area || null,
+      languages: Object.values(c.languages || {}),
+      tld: (c.tld && c.tld[0]) || null,
+      borders: c.borders || [],
+      landlocked: !!c.landlocked,
+    };
+    if (p) { entry.population = p.value; entry.popYear = p.year; }
+    if (c.idd && c.idd.root) {
+      entry.phone = c.idd.root + ((c.idd.suffixes && c.idd.suffixes.length === 1) ? c.idd.suffixes[0] : '');
+    }
+    out[id] = entry;
+  }
+  if (missing.length) console.warn('  ! no reference data for: ' + missing.join(', '));
+  const noPop = Object.keys(out).filter(k => !out[k].population);
+  if (noPop.length) console.warn('  ! no population for: ' + noPop.join(', '));
+
+  emit('countries.js', 'DATA_COUNTRY_INFO', out);
+  return out;
+}
+
 /* ----------------------------------------------------------------- CITIES */
 const G = { name: 1, ascii: 2, lat: 4, lon: 5, fcode: 7, country: 8, pop: 14 };
 
@@ -266,7 +347,8 @@ function buildCities(japanFC, franceDepFC) {
 
 /* -------------------------------------------------------------------- run */
 console.log('Building data files...');
-buildWorld();
+const world = buildWorld();
+buildCountryInfo(world);
 const jp = buildJapan();
 const fr = buildFrance();
 const cities = buildCities(jp, fr.departments);

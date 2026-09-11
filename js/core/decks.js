@@ -45,17 +45,43 @@
   const japan = () => window.DATA_JAPAN;
   const france = () => window.DATA_FRANCE;
   const cities = () => window.DATA_CITIES;
+  const info = () => window.DATA_COUNTRY_INFO || {};
+  const facts = () => window.DATA_FACTS || {};
+
+  const num = n => (n == null ? null : n.toLocaleString('en-US'));
 
   /* ---------------------------------------------------------------- WORLD */
   function countryItems(filter) {
-    return world().features.filter(filter).map(f => ({
-      id: f.properties.id,
-      name: f.properties.name,
-      facts: [
-        ['Continent', f.properties.region],
-        ['Region', f.properties.subregion || '—'],
-      ],
-    }));
+    return world().features.filter(filter).map(f => {
+      const p = f.properties;
+      const d = info()[p.id] || {};
+      const rows = [];
+      if (d.capital) rows.push(['Capital', d.capital]);
+      if (d.population) {
+        rows.push(['Population', num(d.population)
+          + (d.popYear ? ' (' + d.popYear + ')' : '')]);
+      }
+      if (d.currency) {
+        rows.push(['Currency', d.currency.name
+          + (d.currency.symbol ? '  ' + d.currency.symbol : '')
+          + '  · ' + d.currency.code]);
+      }
+      if (d.area) rows.push(['Area', num(d.area) + ' km²']);
+      if (d.languages && d.languages.length) {
+        rows.push([d.languages.length > 1 ? 'Languages' : 'Language', d.languages.join(', ')]);
+      }
+      rows.push(['Continent', p.region + (p.subregion ? ' · ' + p.subregion : '')]);
+      if (d.phone || d.tld) {
+        rows.push(['Dialling · TLD', [d.phone, d.tld].filter(Boolean).join('   ')]);
+      }
+      rows.push(['Neighbours', d.landlocked
+        ? 'Landlocked — ' + (d.borders || []).length + ' land borders'
+        : ((d.borders && d.borders.length)
+          ? d.borders.length + ' land borders'
+          : 'None — island or sole occupant')]);
+
+      return { id: p.id, name: p.name, group: p.region, facts: rows };
+    });
   }
 
   function worldDeck(id, title, subtitle, continent) {
@@ -112,11 +138,13 @@
         id: f.properties.id,
         name: f.properties.name,
         sub: f.properties.nameLocal,
+        group: f.properties.region,
         facts: [
           ['Region', f.properties.region],
           ['Capital', f.properties.capital],
           ['Prefecture no.', f.properties.id],
         ],
+        note: (facts().jpPref || {})[f.properties.id],
       }));
     },
     build() { return japanPanels(japan().prefectures.features); },
@@ -135,7 +163,9 @@
           .filter(f => f.properties.region === region)
           .map(f => ({
             id: f.properties.id, name: f.properties.name, sub: f.properties.nameLocal,
+            group: f.properties.region,
             facts: [['Region', f.properties.region], ['Capital', f.properties.capital]],
+            note: (facts().jpPref || {})[f.properties.id],
           }));
       },
       build() {
@@ -169,6 +199,7 @@
         id: r, name: r,
         facts: [['Prefectures', String(japan().prefectures.features
           .filter(f => f.properties.region === r).length)]],
+        note: (facts().jpRegion || {})[r],
       }));
     },
     build() {
@@ -189,10 +220,12 @@
       return cities().JP.map(c => ({
         id: 'jp-' + c.name,
         name: c.name,
+        group: c.parent,
         facts: [
           ['Prefecture', c.parent],
-          ['Population', c.pop.toLocaleString('en-US')],
+          ['Population', num(c.pop)],
         ],
+        note: (facts().jpCity || {})[c.name],
       }));
     },
     build() {
@@ -212,6 +245,7 @@
         id: f.properties.id, name: f.properties.name,
         facts: [['Départements', String(france().departments.features
           .filter(d => d.properties.regionId === f.properties.id).length)]],
+        note: (facts().frRegion || {})[f.properties.id],
       }));
     },
     build() {
@@ -227,7 +261,9 @@
         id: f.properties.id,
         name: f.properties.name,
         sub: f.properties.id,
+        group: f.properties.region,
         facts: [['Number', f.properties.id], ['Region', f.properties.region]],
+        note: (facts().frDep || {})[f.properties.id],
       }));
     },
     build() {
@@ -249,7 +285,9 @@
           .filter(f => f.properties.region === region)
           .map(f => ({
             id: f.properties.id, name: f.properties.name, sub: f.properties.id,
+            group: f.properties.region,
             facts: [['Number', f.properties.id], ['Region', f.properties.region]],
+            note: (facts().frDep || {})[f.properties.id],
           }));
       },
       build() {
@@ -273,10 +311,12 @@
       return cities().FR.map(c => ({
         id: 'fr-' + c.name,
         name: c.name,
+        group: c.parent,
         facts: [
           ['Département', c.parent],
-          ['Population', c.pop.toLocaleString('en-US')],
+          ['Population', num(c.pop)],
         ],
+        note: (facts().frCity || {})[c.name],
       }));
     },
     build() {

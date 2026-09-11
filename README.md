@@ -59,11 +59,29 @@ Three modes per set:
 
 - **Explore** — hover or tap anything and its name appears on the map, right
   under the pointer. Click for the full details. No scoring. Use this first.
-- **Find it** — a name appears, you click it on the map.
+- **Find it** — a name appears, you click it on the map, then confirm. The first
+  click only marks your pick — it turns gold — and a second click on the same
+  place, the Confirm button, or Enter commits it. Nothing is scored until you
+  commit, so a misclick on a small département costs nothing. The marked shape
+  is deliberately never named: being told what you just clicked would turn the
+  mode into clicking around and reading labels until the right name appeared.
 - **Name it** — a shape lights up, you choose its name from five options.
 
 Names stay hidden while a question is live and come back the moment you answer,
 so you can read around the answer before moving on.
+
+### What you get told about a place
+
+Every answer, right or wrong, leaves a card on screen.
+
+- **Countries** get a reference card: capital, population, currency, area,
+  languages, dialling code and domain, continent, and how many countries they
+  border.
+- **Regions and cities** get the same kind of card plus one **Worth knowing**
+  fact — 273 of them, one for every Japanese prefecture and region, every
+  French région and département, and every city in both lists. They live in
+  `data/facts.js` and are hand-written, so that is the file to edit when one
+  reads badly or you learn a better one.
 
 The per-region sub-decks matter more than they look. Learning 96 départements
 in one sitting does not work; learning the five of Bretagne, then the eight of
@@ -129,6 +147,11 @@ back empty — it picks a different area and retries.
 
 ## Adding to it
 
+### A better fact about somewhere
+
+`data/facts.js` is plain text keyed by region code or city name. Edit it and
+reload — nothing needs rebuilding. A missing key just means no fact card.
+
 ### More countries in Street School
 
 Open `data/meta.js`. Add an entry to `countries` following the shape of the
@@ -189,6 +212,8 @@ A few decisions worth knowing about:
 | French regions and départements | [france-geojson](https://github.com/gregoiredavid/france-geojson) (from IGN) | Open data |
 | French administrative mapping | [@etalab/decoupage-administratif](https://github.com/etalab/decoupage-administratif) | Licence Ouverte |
 | City coordinates and populations | [GeoNames](https://www.geonames.org) `cities15000` | CC BY 4.0 |
+| Country capitals, currencies, areas, languages | [mledoze/countries](https://github.com/mledoze/countries) | ODbL |
+| Country populations | [World Bank](https://data.worldbank.org/indicator/SP.POP.TOTL) `SP.POP.TOTL` | CC BY 4.0 |
 | Libraries | [d3-geo](https://github.com/d3/d3-geo), [d3-array](https://github.com/d3/d3-array), [topojson-client](https://github.com/topojson/topojson-client) | ISC / BSD |
 
 The Street School content was written for this project, checked against these
@@ -207,7 +232,7 @@ guides:
 ```
 index.html            page shell and script order
 css/style.css         both themes
-data/*.js             generated map data + hand-written meta.js
+data/*.js             generated map data; hand-written meta.js and facts.js
 js/vendor/            d3-geo, d3-array, topojson-client
 js/core/dom.js        tiny DOM helpers
 js/core/store.js      localStorage, Leitner scheduling

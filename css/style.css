@@ -307,6 +307,25 @@ h3 { font-size: 17px; margin: 0 0 8px; }
 .map-shape.is-hint    { fill: var(--accent-soft); }
 .map-shape.is-dim     { fill: var(--context-ink); }
 
+/* A pick that has been made but not committed. Deliberately neither the green
+   of a right answer nor the teal of a prompt — it reads as "waiting on you". */
+.map-shape.is-pending {
+  fill: var(--gold);
+  stroke: color-mix(in srgb, var(--gold) 45%, var(--ink));
+  stroke-width: 2;
+  animation: pending-pulse 1.6s ease-in-out infinite;
+}
+.map-dot.is-pending {
+  fill: var(--gold);
+  stroke: color-mix(in srgb, var(--gold) 45%, var(--ink));
+  stroke-width: 2.4;
+  animation: pending-pulse 1.6s ease-in-out infinite;
+}
+@keyframes pending-pulse { 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) {
+  .map-shape.is-pending, .map-dot.is-pending { animation: none; }
+}
+
 /* the click target: invisible, but larger than the dot so dense clusters
    like Kansai stay clickable. `pointer-events: all` makes an unfilled shape
    hittable. */
@@ -374,6 +393,27 @@ h3 { font-size: 17px; margin: 0 0 8px; }
 .fact { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
 .fact dt { color: var(--ink-soft); flex: none; width: 106px; margin: 0; }
 .fact dd { margin: 0; font-weight: 550; }
+
+/* the one thing worth remembering about a place, under the reference rows */
+.did-you-know {
+  margin-top: 14px;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 9px 9px 0;
+}
+.dyk-tag {
+  font: 700 10px var(--sans);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.did-you-know p {
+  margin: 5px 0 0;
+  font-size: 13.2px;
+  line-height: 1.58;
+  color: var(--ink-soft);
+}
 
 /* option buttons for "name the highlighted one" */
 .options { display: grid; gap: 7px; margin-top: 2px; }
@@ -680,4 +720,27 @@ kbd {
 .reset-view { flex: none; }
 @media (hover: none) {
   .map-tools { display: none; }
+}
+
+/* The Confirm / Pick another pair in Find it. In the side panel on a desktop;
+   pinned to the bottom of the screen on a phone, because the panel itself can
+   sit below the fold and this is the only control the question needs. */
+.confirm-bar { display: flex; flex-direction: column; gap: 8px; }
+.confirm-bar .btn { width: 100%; justify-content: center; }
+
+@media (max-width: 860px) {
+  .confirm-bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px -12px rgba(0,0,0,.45);
+  }
+  .confirm-bar .btn-primary { flex: 1; padding: 13px 16px; font-size: 15px; }
+  .confirm-bar .btn-ghost { flex: none; }
 }

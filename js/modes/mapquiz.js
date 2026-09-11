@@ -15,10 +15,6 @@
   const OPTIONS = 5;          // choices offered in identify mode
   const el = window.h, esc = window.esc;
 
-  // Each round builds a fresh map. The old one keeps a viewport listener and a
-  // pair of window pointer listeners alive until it is told to let go.
-  let liveMap = null;
-
   function start(root, deckId, mode) {
     const deck = window.Decks.get(deckId);
     if (!deck) { root.innerHTML = '<div class="empty">Unknown deck.</div>'; return; }
@@ -86,9 +82,7 @@
     wrap.append(main, side);
     root.appendChild(wrap);
 
-    if (liveMap) liveMap.destroy();
     const map = new window.MapView(mapHost);
-    liveMap = map;
     map.render(built.panels, built.projection);
     if (built.dots) map.renderDots(built.dots);
 

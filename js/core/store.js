@@ -154,7 +154,8 @@
 
     /**
      * The items of a deck you keep getting wrong: seen, answered wrong at
-     * least once, and not yet promoted out of the early boxes.
+     * least once, and not yet promoted out of the early boxes. Feeds the
+     * picker's "just the ones I keep missing" shortcut.
      */
     leeches(deck, ids) {
       return ids.filter(id => {

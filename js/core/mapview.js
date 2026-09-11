@@ -24,7 +24,13 @@
   const NS = 'http://www.w3.org/2000/svg';
   // every highlight a shape can carry; listed once so adding one cannot leave
   // a stale class behind
-  const STATE_CLASSES = ['is-correct', 'is-wrong', 'is-target', 'is-pending', 'is-hint', 'is-dim'];
+  const STATE_CLASSES = ['is-correct', 'is-wrong', 'is-target', 'is-pending',
+                         'is-hint', 'is-dim', 'is-off'];
+
+  // Every live instance, so a route change can let go of all of them at once.
+  // A MapView holds a viewport listener and two window pointer listeners, and
+  // more than one can be alive now that the deck page has a map of its own.
+  const live = new Set();
 
   class MapView {
     constructor(container) {
@@ -42,6 +48,7 @@
       this.H = LANDSCAPE_H;
       this._build();
       this._watchViewport();
+      live.add(this);
     }
 
     _build() {
@@ -87,6 +94,7 @@
     }
 
     destroy() {
+      live.delete(this);
       if (this._endOutside) {
         window.removeEventListener('pointerup', this._endOutside);
         window.removeEventListener('pointercancel', this._endOutside);
@@ -662,6 +670,10 @@
     }
     return { type: 'MultiPoint', coordinates: pts };
   }
+
+  MapView.destroyAll = function () {
+    for (const m of [...live]) m.destroy();
+  };
 
   window.MapView = MapView;
   window.MAP_W = W;

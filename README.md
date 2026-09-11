@@ -62,15 +62,21 @@ Node. Both are optional for day-to-day use.
 
 ### Practising only part of a set
 
-Every deck has a **Choose what to practise** picker. Switch items on and off as
-chips, click a group heading to toggle a whole region at once, filter by name,
-or hit *Ones I keep missing* to build a set out of your own mistakes.
+Each deck page carries its own map. **Click a place to switch it off** and it
+fades; click it again and it comes back. Hovering names them, so you can pick
+without already knowing the map. There are shortcuts for *Select all*,
+*Clear all*, *Invert*, and *Just the ones I keep missing*, which builds a set
+out of your own wrong answers.
 
-Only the **asking** narrows. The map still draws the whole deck and *Name it*
+Choosing on the map rather than from a list is the point: these places are
+shapes in space, and "the seven prefectures around Tokyo" is a thing you point
+at, not a thing you look up alphabetically.
+
+Only the **asking** narrows. A round still draws the whole deck and *Name it*
 still pulls its wrong answers from all of it — a map that only let you click
-your five chosen departments would turn *Find it* into a one-in-five guess. The
-round shows what is active in the breadcrumb, and the home screen says so on
-the card.
+your seven chosen prefectures would turn *Find it* into a one-in-seven guess.
+The round shows what is active in the breadcrumb, and the home screen says so
+on the card.
 
 Three modes per set:
 

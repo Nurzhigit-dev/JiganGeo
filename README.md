@@ -51,9 +51,26 @@ Node. Both are optional for day-to-day use.
 | Japan — the 8 regions | 8 |
 | Japan — all 47 prefectures, plus a sub-deck per region | 47 |
 | Japan — major cities | 55 |
+| China — the 6 regions | 6 |
+| China — all 31 province-level divisions, plus a sub-deck per region | 31 |
+| China — major cities | 55 |
 | France — the 13 metropolitan regions | 13 |
-| France — all 96 départements, plus a sub-deck per region | 96 |
+| France — all 96 departments, plus a sub-deck per region | 96 |
 | France — major cities | 54 |
+
+41 decks, 890 items in total.
+
+### Practising only part of a set
+
+Every deck has a **Choose what to practise** picker. Switch items on and off as
+chips, click a group heading to toggle a whole region at once, filter by name,
+or hit *Ones I keep missing* to build a set out of your own mistakes.
+
+Only the **asking** narrows. The map still draws the whole deck and *Name it*
+still pulls its wrong answers from all of it — a map that only let you click
+your five chosen departments would turn *Find it* into a one-in-five guess. The
+round shows what is active in the breadcrumb, and the home screen says so on
+the card.
 
 Three modes per set:
 
@@ -81,10 +98,27 @@ Every answer, right or wrong, leaves a card on screen.
   languages, dialling code and domain, continent, and how many countries they
   border.
 - **Regions and cities** get the same kind of card plus one **Worth knowing**
-  fact — 273 of them, one for every Japanese prefecture and region, every
-  French région and département, and every city in both lists. They live in
-  `data/facts.js` and are hand-written, so that is the file to edit when one
-  reads badly or you learn a better one.
+  fact — 365 of them, one for every Japanese, Chinese and French region,
+  prefecture, province and department, and every city in all three lists. They
+  live in `data/facts.js` and are hand-written, so that is the file to edit
+  when one reads badly or you learn a better one.
+
+### Names are in English
+
+Every label is plain English in the Latin alphabet with no diacritics, because
+"Côtes-d'Armor" and "Kōriyama" are a wall if you do not already read French or
+romanised Japanese. Two rules, in order:
+
+1. Where English has its own name for a place, it is used — **Brittany**, not
+   Bretagne; **Ivory Coast**, not Côte d'Ivoire.
+2. Otherwise the accents come off and the name is left alone — **Cotes-d'Armor**,
+   **Besancon**, **Oita**. There is no English word for Ille-et-Vilaine, and
+   inventing one would make the place harder to look up, not easier.
+
+The real spelling is kept and shown as **Local name** on the info card, so
+nothing is lost. Japanese and Chinese names still appear in their own script as
+the subtitle, since kanji and hanzi are obviously supplementary rather than
+something to read at speed.
 
 The per-region sub-decks matter more than they look. Learning 96 départements
 in one sitting does not work; learning the five of Bretagne, then the eight of
@@ -200,8 +234,19 @@ A few decisions worth knowing about:
 - **The world map has 176 countries**, from Natural Earth's 110m data. Very
   small states (Monaco, San Marino, Malta, Andorra…) are not in it and are not
   really clickable at that scale anyway.
-- **France is metropolitan only** — the five overseas départements are not
+- **France is metropolitan only** — the five overseas departments are not
   included.
+- **China is the 31 mainland province-level divisions** — 22 provinces, 5
+  autonomous regions and 4 municipalities. Hong Kong and Macau are separate
+  top-level units in Natural Earth, and Taiwan is already its own entry in the
+  world deck, so none of the three appear in the China decks.
+- **Chinese cities are picked from a named list**, not by population rank.
+  GeoNames reports Chinese populations at prefecture level, so ranking by them
+  put Wuzhong — carrying the whole of Ningxia's 7.2 million — above Qingdao,
+  while genuinely major cities fell below the cut. The list is every
+  province-level capital plus the largest non-capitals; the population figures
+  are still GeoNames', and are labelled *(municipality)* because that is what
+  they measure.
 - **French plates are a soft clue.** Since the 2009 SIV system a driver can pick
   any département number, so the app says so rather than teaching it as a rule.
 
@@ -215,6 +260,7 @@ A few decisions worth knowing about:
 | French regions and départements | [france-geojson](https://github.com/gregoiredavid/france-geojson) (from IGN) | Open data |
 | French administrative mapping | [@etalab/decoupage-administratif](https://github.com/etalab/decoupage-administratif) | Licence Ouverte |
 | City coordinates and populations | [GeoNames](https://www.geonames.org) `cities15000` | CC BY 4.0 |
+| Chinese province outlines and English names | [Natural Earth](https://www.naturalearthdata.com) admin-1 (50m) | Public domain |
 | Country capitals, currencies, areas, languages | [mledoze/countries](https://github.com/mledoze/countries) | ODbL |
 | Country populations | [World Bank](https://data.worldbank.org/indicator/SP.POP.TOTL) `SP.POP.TOTL` | CC BY 4.0 |
 | Libraries | [d3-geo](https://github.com/d3/d3-geo), [d3-array](https://github.com/d3/d3-array), [topojson-client](https://github.com/topojson/topojson-client) | ISC / BSD |

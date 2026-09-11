@@ -23,13 +23,24 @@
     const deck = window.Decks.get(deckId);
     if (!deck) { root.innerHTML = '<div class="empty">Unknown deck.</div>'; return; }
 
+    // `items` is the whole deck: the map draws all of it and Name it draws its
+    // distractors from all of it. A selection narrows only what gets asked.
     const items = deck.items;
     const byId = new Map(items.map(i => [i.id, i]));
     const built = deck.build();
 
+    // Explore deliberately ignores the selection — browsing a cut-down map is
+    // not a thing anyone wants.
+    const selection = mode === 'learn' ? null : window.Store.selection(deckId);
+    const inPlay = selection
+      ? items.filter(i => new Set(selection).has(i.id))
+      : items;
+
+    if (mode !== 'learn' && !inPlay.length) return nothingSelected(root, deck);
+
     const queue = mode === 'learn'
       ? []
-      : window.Store.queue(deckId, items.map(i => i.id), Math.min(SESSION, items.length));
+      : window.Store.queue(deckId, inPlay.map(i => i.id), Math.min(SESSION, inPlay.length));
 
     const state = {
       idx: 0, score: 0, streak: 0, best: 0,
@@ -42,7 +53,7 @@
     /* --------------------------------------------------------------- DOM */
     root.className = 'app is-wide';
     root.innerHTML = '';
-    root.appendChild(crumb(deck, mode));
+    root.appendChild(crumb(deck, mode, selection ? inPlay.length + ' of ' + items.length : null));
 
     const wrap = el('div', 'quiz');
     const main = el('div', 'quiz-main');
@@ -415,12 +426,28 @@
     }
   }
 
+  /** Reached when a deck has a selection but nothing is switched on in it. */
+  function nothingSelected(root, deck) {
+    root.className = 'app';
+    root.innerHTML = '';
+    const box = el('div', 'empty');
+    box.innerHTML = '<h2 style="margin:0 0 8px">Nothing to ask</h2>'
+      + '<p>Every item in <strong>' + esc(deck.title) + '</strong> is switched off, '
+      + 'so a round has no questions in it.</p>';
+    const back = el('button', 'btn btn-primary', 'Choose what to practise');
+    back.onclick = () => { location.hash = '#/deck/' + deck.id; };
+    box.appendChild(back);
+    root.appendChild(box);
+  }
+
   /* ----------------------------------------------------------- fragments */
-  function crumb(deck, mode) {
+  function crumb(deck, mode, subset) {
     const label = { learn: 'Explore', locate: 'Find it', identify: 'Name it' }[mode];
     const c = el('div', 'crumb');
     c.innerHTML = '<a href="#/">Decks</a> <span>›</span> <span>' + esc(deck.group) + '</span> '
-      + '<span>›</span> <span>' + esc(deck.title) + '</span> <span>›</span> <strong>' + label + '</strong>';
+      + '<span>›</span> <a href="#/deck/' + esc(deck.id) + '">' + esc(deck.title) + '</a> '
+      + '<span>›</span> <strong>' + label + '</strong>'
+      + (subset ? ' <span class="crumb-chip">' + esc(subset) + '</span>' : '');
     return c;
   }
 

@@ -36,6 +36,7 @@
   function blank() {
     return {
       items: {},      // "deck:id" -> { b, d, s, c, w }
+      selection: {},  // deck -> [id] when only part of a deck is in play
       settings: { mapillaryToken: '', labels: false, theme: 'auto' },
       totals: { answered: 0, correct: 0, bestStreak: 0 },
       history: {},    // "YYYY-MM-DD" -> answers that day
@@ -125,6 +126,41 @@
     resetDeck(deck, ids) {
       for (const id of ids) delete state.items[deck + ':' + id];
       save();
+    },
+
+    /* ------------------------------------------------------- selection */
+    /**
+     * Which items of a deck are in play.
+     *
+     * Returns null when the whole deck is, which is the default and is stored
+     * as the *absence* of a selection rather than as a list of everything —
+     * so adding new places to a deck later does not silently leave them out
+     * of somebody's existing selection.
+     */
+    selection(deck) {
+      const sel = state.selection && state.selection[deck];
+      // an empty array is a real answer ("nothing is switched on") and must
+      // round-trip as one, or turning everything off would silently mean
+      // turning everything on
+      return Array.isArray(sel) ? sel.slice() : null;
+    },
+
+    setSelection(deck, ids) {
+      if (!state.selection) state.selection = {};
+      if (ids == null) delete state.selection[deck];
+      else state.selection[deck] = ids.slice();
+      save();
+    },
+
+    /**
+     * The items of a deck you keep getting wrong: seen, answered wrong at
+     * least once, and not yet promoted out of the early boxes.
+     */
+    leeches(deck, ids) {
+      return ids.filter(id => {
+        const it = state.items[deck + ':' + id];
+        return it && it.w > 0 && it.b <= 2;
+      });
     },
 
     resetAll() {

@@ -45,10 +45,18 @@
   const japan = () => window.DATA_JAPAN;
   const france = () => window.DATA_FRANCE;
   const cities = () => window.DATA_CITIES;
+  const china = () => window.DATA_CHINA;
   const info = () => window.DATA_COUNTRY_INFO || {};
   const facts = () => window.DATA_FACTS || {};
 
   const num = n => (n == null ? null : n.toLocaleString('en-US'));
+
+  /**
+   * Names are displayed in plain English without accents, so the real local
+   * spelling gets a row on the card. Nothing is lost, it is just not the thing
+   * you have to read at speed.
+   */
+  const localRows = local => (local ? [['Local name', local]] : []);
 
   /* ---------------------------------------------------------------- WORLD */
   function countryItems(filter) {
@@ -74,6 +82,7 @@
       if (d.phone || d.tld) {
         rows.push(['Dialling · TLD', [d.phone, d.tld].filter(Boolean).join('   ')]);
       }
+      rows.push(...localRows(p.nameLocal));
       rows.push(['Neighbours', d.landlocked
         ? 'Landlocked — ' + (d.borders || []).length + ' land borders'
         : ((d.borders && d.borders.length)
@@ -224,7 +233,7 @@
         facts: [
           ['Prefecture', c.parent],
           ['Population', num(c.pop)],
-        ],
+        ].concat(localRows(c.nameLocal)),
         note: (facts().jpCity || {})[c.name],
       }));
     },
@@ -243,8 +252,9 @@
     get items() {
       return france().regions.features.map(f => ({
         id: f.properties.id, name: f.properties.name,
-        facts: [['Départements', String(france().departments.features
-          .filter(d => d.properties.regionId === f.properties.id).length)]],
+        facts: [['Departments', String(france().departments.features
+          .filter(d => d.properties.regionId === f.properties.id).length)]]
+          .concat(localRows(f.properties.nameLocal)),
         note: (facts().frRegion || {})[f.properties.id],
       }));
     },
@@ -254,7 +264,7 @@
   });
 
   define({
-    id: 'fr-dep', title: 'All 96 départements', subtitle: 'Ain to Val-d\'Oise',
+    id: 'fr-dep', title: 'All 96 departments', subtitle: 'Ain to Val-d\'Oise',
     group: 'France', kind: 'shape', focusFill: 0.28,
     get items() {
       return france().departments.features.map(f => ({
@@ -262,7 +272,8 @@
         name: f.properties.name,
         sub: f.properties.id,
         group: f.properties.region,
-        facts: [['Number', f.properties.id], ['Region', f.properties.region]],
+        facts: [['Number', f.properties.id], ['Region', f.properties.region]]
+          .concat(localRows(f.properties.nameLocal)),
         note: (facts().frDep || {})[f.properties.id],
       }));
     },
@@ -271,14 +282,30 @@
     },
   });
 
-  // Same chunking idea as Japan: 96 départements is hopeless in one sitting.
-  const FR_REGION_ORDER = ['Île-de-France', 'Bretagne', 'Normandie', 'Hauts-de-France',
-    'Grand Est', 'Bourgogne-Franche-Comté', 'Centre-Val de Loire', 'Pays de la Loire',
-    'Nouvelle-Aquitaine', 'Occitanie', 'Auvergne-Rhône-Alpes', 'Provence-Alpes-Côte d\'Azur', 'Corse'];
-  for (const region of FR_REGION_ORDER) {
+  // Same chunking idea as Japan: 96 departments is hopeless in one sitting.
+  /*
+   * Taken from the data rather than written out, because hard-coding these
+   * once meant the whole set of sub-decks silently emptied when the régions
+   * were renamed to English — every filter matched nothing and every map came
+   * up blank. The list below only expresses a teaching order; anything the
+   * data has that is not named here is simply appended.
+   */
+  const FR_REGION_ORDER = ['Ile-de-France', 'Brittany', 'Normandy', 'Hauts-de-France',
+    'Grand Est', 'Burgundy-Franche-Comte', 'Centre-Val de Loire', 'Pays de la Loire',
+    'Nouvelle-Aquitaine', 'Occitania', 'Auvergne-Rhone-Alpes',
+    'Provence-Alpes-Cote d\'Azur', 'Corsica'];
+
+  const frRegionNames = [...new Set(france().departments.features
+    .map(f => f.properties.region).filter(Boolean))]
+    .sort((a, b) => {
+      const ia = FR_REGION_ORDER.indexOf(a), ib = FR_REGION_ORDER.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+
+  for (const region of frRegionNames) {
     define({
       id: 'fr-dep-' + slug(region),
-      title: region, subtitle: 'Départements of ' + region,
+      title: region, subtitle: 'Departments of ' + region,
       group: 'France', kind: 'shape', focusFill: 0.3, indent: true,
       get items() {
         return france().departments.features
@@ -286,7 +313,8 @@
           .map(f => ({
             id: f.properties.id, name: f.properties.name, sub: f.properties.id,
             group: f.properties.region,
-            facts: [['Number', f.properties.id], ['Region', f.properties.region]],
+            facts: [['Number', f.properties.id], ['Region', f.properties.region]]
+              .concat(localRows(f.properties.nameLocal)),
             note: (facts().frDep || {})[f.properties.id],
           }));
       },
@@ -313,9 +341,9 @@
         name: c.name,
         group: c.parent,
         facts: [
-          ['Département', c.parent],
+          ['Department', c.parent],
           ['Population', num(c.pop)],
-        ],
+        ].concat(localRows(c.nameLocal)),
         note: (facts().frCity || {})[c.name],
       }));
     },
@@ -328,6 +356,114 @@
     },
   });
 
+  /* ---------------------------------------------------------------- CHINA */
+  // Explicit window rather than fitting the features: Xinjiang reaches 73°E and
+  // Heilongjiang 135°E, so an automatic fit is stable, but pinning it keeps the
+  // framing identical across the province, region and city decks.
+  const CN_BOUNDS = [[73, 17.5], [135.5, 54]];
+  const chinaPanels = features => ({
+    projection: 'mercator',
+    panels: [{ id: 'main', features: features, bounds: CN_BOUNDS }],
+  });
+
+  define({
+    id: 'cn-prov', title: 'All 31 divisions', subtitle: 'Provinces, regions and municipalities',
+    group: 'China', kind: 'shape', focusFill: 0.32,
+    get items() {
+      return china().provinces.features.map(f => ({
+        id: f.properties.id,
+        name: f.properties.name,
+        sub: f.properties.nameLocal,
+        group: f.properties.region,
+        facts: [
+          ['Region', f.properties.region],
+          ['Capital', f.properties.capital],
+          ['Status', f.properties.kind],
+        ],
+        note: (facts().cnProv || {})[f.properties.id],
+      }));
+    },
+    build() { return chinaPanels(china().provinces.features); },
+  });
+
+  for (const region of ['North China', 'Northeast', 'East China',
+                        'South Central', 'Southwest', 'Northwest']) {
+    define({
+      id: 'cn-prov-' + slug(region),
+      title: region, subtitle: 'Divisions of ' + region,
+      group: 'China', kind: 'shape', focusFill: 0.32, indent: true,
+      get items() {
+        return china().provinces.features
+          .filter(f => f.properties.region === region)
+          .map(f => ({
+            id: f.properties.id, name: f.properties.name, sub: f.properties.nameLocal,
+            group: f.properties.region,
+            facts: [['Region', f.properties.region], ['Capital', f.properties.capital]],
+            note: (facts().cnProv || {})[f.properties.id],
+          }));
+      },
+      build() {
+        const all = china().provinces.features;
+        return {
+          projection: 'mercator',
+          panels: [{
+            id: 'main',
+            features: all.filter(f => f.properties.region === region),
+            context: all.filter(f => f.properties.region !== region),
+            bounds: CN_BOUNDS,
+          }],
+        };
+      },
+    });
+  }
+
+  define({
+    id: 'cn-region', title: 'The 6 regions', subtitle: 'North, Northeast, East, South Central…',
+    group: 'China', kind: 'shape', focusFill: 0.3,
+    get items() {
+      return china().regions.map(r => ({
+        id: r, name: r,
+        facts: [['Divisions', String(china().provinces.features
+          .filter(f => f.properties.region === r).length)]],
+        note: (facts().cnRegion || {})[r],
+      }));
+    },
+    build() {
+      // as with Japan: draw the provinces, but each answers to its region name
+      return chinaPanels(china().provinces.features.map(f => ({
+        type: 'Feature',
+        properties: { id: f.properties.region, name: f.properties.region },
+        geometry: f.geometry,
+      })));
+    },
+  });
+
+  define({
+    id: 'cn-city', title: 'Major cities', subtitle: 'Every provincial capital, plus the giants',
+    group: 'China', kind: 'dot', focusFill: 0.2,
+    get items() {
+      return cities().CN.map(c => ({
+        id: 'cn-' + c.name,
+        name: c.name,
+        sub: c.nameLocal,
+        group: c.parent,
+        facts: [
+          ['Division', c.parent],
+          // GeoNames reports Chinese cities at municipality level, which for
+          // Chongqing means an area the size of Austria. Labelled, not hidden.
+          ['Population', num(c.pop) + ' (municipality)'],
+        ],
+        note: (facts().cnCity || {})[c.name],
+      }));
+    },
+    build() {
+      const base = chinaPanels([]);
+      base.panels[0].context = china().provinces.features;
+      base.dots = cities().CN.map(c => ({ id: 'cn-' + c.name, lat: c.lat, lon: c.lon }));
+      return base;
+    },
+  });
+
   function slug(s) {
     return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -336,6 +472,6 @@
   window.Decks = {
     all: () => registry,
     get: id => byId.get(id),
-    groups: () => ['World', 'Japan', 'France'],
+    groups: () => ['World', 'Japan', 'China', 'France'],
   };
 })();

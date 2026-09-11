@@ -33,6 +33,113 @@ function round(features, prec) {
   for (const f of features) f.geometry.coordinates = walk(f.geometry.coordinates);
 }
 
+/* ------------------------------------------------------------ ENGLISH NAMES */
+/**
+ * Every label in the app is rendered in the Latin alphabet without diacritics,
+ * because "Côtes-d'Armor" and "Kōriyama" are a wall to anyone who does not
+ * already read French or romanised Japanese.
+ *
+ * Two rules, in order:
+ *   1. If English genuinely has its own name for the place, use it. Brittany,
+ *      not Bretagne.
+ *   2. Otherwise strip the accents and leave the name alone. There is no
+ *      English word for Ille-et-Vilaine, and inventing one would make the
+ *      place harder to look up rather than easier.
+ *
+ * The original spelling is kept as `nameLocal` and shown on the info card, so
+ * nothing is actually lost.
+ */
+const EXONYM = {
+  // French regions with established English names
+  'Bretagne': 'Brittany',
+  'Normandie': 'Normandy',
+  'Corse': 'Corsica',
+  'Occitanie': 'Occitania',
+  'Bourgogne-Franche-Comté': 'Burgundy-Franche-Comte',
+  // French cities English has its own spelling for
+  'Dunkerque': 'Dunkirk',
+  'Dunkirk': 'Dunkirk',
+  // the one country name in the world set that is not already plain English
+  "Côte d'Ivoire": 'Ivory Coast',
+};
+
+function english(name) {
+  if (!name) return name;
+  if (EXONYM[name]) return EXONYM[name];
+  return name
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // drop combining accents
+    .replace(/[‘’]/g, "'")                   // curly quotes -> ASCII
+    .replace(/[–—]/g, '-');                  // en/em dash -> hyphen
+}
+
+/**
+ * { name, nameLocal } with nameLocal present only when it is worth showing.
+ *
+ * Punctuation is normalised before the comparison, so Xi’an does not end up
+ * carrying "Xi’an" as its local name — the curly apostrophe is the only
+ * difference and reprinting it teaches nobody anything. Ürümqi keeps Ürümqi.
+ */
+function label(original) {
+  const tidy = String(original)
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-');
+  const name = english(original);
+  return name === tidy ? { name: name } : { name: name, nameLocal: original };
+}
+
+/* ------------------------------------------------------- SIMPLIFY GEOMETRY */
+function perpDist(p, a, b) {
+  const [x, y] = p, [x1, y1] = a, [x2, y2] = b;
+  const dx = x2 - x1, dy = y2 - y1;
+  if (dx === 0 && dy === 0) return Math.hypot(x - x1, y - y1);
+  const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(x - (x1 + t * dx), y - (y1 + t * dy));
+}
+
+function dp(pts, eps) {
+  if (pts.length < 3) return pts;
+  let maxD = 0, idx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = perpDist(pts[i], pts[0], pts[pts.length - 1]);
+    if (d > maxD) { maxD = d; idx = i; }
+  }
+  if (maxD <= eps) return [pts[0], pts[pts.length - 1]];
+  return dp(pts.slice(0, idx + 1), eps).slice(0, -1).concat(dp(pts.slice(idx), eps));
+}
+
+/** Douglas-Peucker every ring, dropping rings that collapse below `minArea`. */
+function thin(features, eps, minArea) {
+  const ringArea = r => {
+    let a = 0;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += r[j][0] * r[i][1] - r[i][0] * r[j][1];
+    return Math.abs(a / 2);
+  };
+  const ring = r => {
+    let out = dp(r, eps);
+    if (out.length < 4) return null;
+    const f = out[0], l = out[out.length - 1];
+    if (f[0] !== l[0] || f[1] !== l[1]) out = out.concat([[f[0], f[1]]]);
+    return out.length >= 4 ? out : null;
+  };
+  const poly = p => {
+    const outer = ring(p[0]);
+    if (!outer || ringArea(outer) < minArea) return null;
+    return [outer].concat(p.slice(1).map(ring).filter(h => h && ringArea(h) >= minArea));
+  };
+  for (const f of features) {
+    const g = f.geometry;
+    if (g.type === 'Polygon') {
+      const p = poly(g.coordinates);
+      if (p) g.coordinates = p;
+    } else if (g.type === 'MultiPolygon') {
+      const ps = g.coordinates.map(poly).filter(Boolean);
+      if (ps.length === 1) f.geometry = { type: 'Polygon', coordinates: ps[0] };
+      else if (ps.length) g.coordinates = ps;
+      // nothing survived: keep the original rather than lose the feature
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ WORLD */
 function buildWorld() {
   const topo = read('world-110m.json');
@@ -77,13 +184,12 @@ function buildWorld() {
     const fix = REGION_FIX[id];
     features.push({
       type: 'Feature',
-      properties: {
+      properties: Object.assign(label(name), {
         id: id,
         iso2: meta ? meta['alpha-2'] : extra.iso2,
-        name: name,
         region: (fix && fix.region) || (meta ? meta.region : extra.region),
         subregion: (fix && fix.subregion) || (meta ? meta['sub-region'] : extra.subregion),
-      },
+      }),
       geometry: f.geometry,
     });
   }
@@ -158,9 +264,9 @@ function buildFrance() {
     type: 'FeatureCollection',
     features: regGeo.features.map(f => ({
       type: 'Feature',
-      properties: { id: f.properties.code, name: f.properties.nom },
+      properties: Object.assign(label(f.properties.nom), { id: f.properties.code }),
       geometry: f.geometry,
-    })).sort((a, b) => a.properties.name.localeCompare(b.properties.name, 'fr')),
+    })).sort((a, b) => a.properties.name.localeCompare(b.properties.name)),
   };
 
   const departments = {
@@ -170,12 +276,11 @@ function buildFrance() {
       const r = m && regMeta.get(m.region);
       return {
         type: 'Feature',
-        properties: {
+        properties: Object.assign(label(f.properties.nom), {
           id: f.properties.code,
-          name: f.properties.nom,
-          region: r ? r.nom : '',
+          region: r ? english(r.nom) : '',
           regionId: m ? m.region : '',
-        },
+        }),
         geometry: f.geometry,
       };
     }).sort((a, b) => a.properties.id.localeCompare(b.properties.id)),
@@ -270,6 +375,75 @@ function buildCountryInfo(worldFC) {
   return out;
 }
 
+/* ------------------------------------------------------------------ CHINA */
+/*
+ * The 31 province-level divisions of mainland China: 22 provinces, 5
+ * autonomous regions and 4 municipalities. Hong Kong and Macau are separate
+ * top-level units in Natural Earth and Taiwan is already its own country in
+ * the world deck, so none of the three appear here.
+ *
+ * Grouped into the six conventional regions Chinese geography teaching uses.
+ */
+const CN_REGIONS = {
+  'North China': ['BJ', 'TJ', 'HE', 'SX', 'NM'],
+  'Northeast': ['LN', 'JL', 'HL'],
+  'East China': ['SH', 'JS', 'ZJ', 'AH', 'FJ', 'JX', 'SD'],
+  'South Central': ['HA', 'HB', 'HN', 'GD', 'GX', 'HI'],
+  'Southwest': ['CQ', 'SC', 'GZ', 'YN', 'XZ'],
+  'Northwest': ['SN', 'GS', 'QH', 'NX', 'XJ'],
+};
+const CN_CAPITALS = {
+  AH: 'Hefei', BJ: 'Beijing', CQ: 'Chongqing', FJ: 'Fuzhou', GD: 'Guangzhou',
+  GS: 'Lanzhou', GX: 'Nanning', GZ: 'Guiyang', HA: 'Zhengzhou', HB: 'Wuhan',
+  HE: 'Shijiazhuang', HI: 'Haikou', HL: 'Harbin', HN: 'Changsha', JL: 'Changchun',
+  JS: 'Nanjing', JX: 'Nanchang', LN: 'Shenyang', NM: 'Hohhot', NX: 'Yinchuan',
+  QH: 'Xining', SC: 'Chengdu', SD: 'Jinan', SH: 'Shanghai', SN: "Xi'an",
+  SX: 'Taiyuan', TJ: 'Tianjin', XJ: 'Urumqi', XZ: 'Lhasa', YN: 'Kunming',
+  ZJ: 'Hangzhou',
+};
+
+function buildChina() {
+  const src = JSON.parse(fs.readFileSync(path.join(RAW, 'ne50-admin1.geojson'), 'utf8'));
+  const regionOf = new Map();
+  for (const region of Object.keys(CN_REGIONS))
+    for (const id of CN_REGIONS[region]) regionOf.set(id, region);
+
+  const features = src.features
+    .filter(f => f.properties.adm0_a3 === 'CHN' && f.properties.iso_3166_2)
+    .map(f => {
+      const p = f.properties;
+      const id = p.iso_3166_2.replace(/^CN-/, '');
+      return {
+        type: 'Feature',
+        properties: Object.assign(label(p.name_en), {
+          id: id,
+          nameLocal: p.name_zh || undefined,
+          region: regionOf.get(id),
+          capital: CN_CAPITALS[id],
+          kind: p.type_en,
+        }),
+        geometry: f.geometry,
+      };
+    })
+    .sort((a, b) => a.properties.name.localeCompare(b.properties.name));
+
+  const ungrouped = features.filter(f => !f.properties.region);
+  if (ungrouped.length)
+    console.warn('  ! China divisions with no region: '
+      + ungrouped.map(f => f.properties.id).join(','));
+
+  // Cities are assigned against the *unsimplified* outlines. Thinning moves a
+  // coastline by up to a kilometre, which is enough to push Shenzhen outside
+  // Guangdong and drop China's fourth-largest city from the list entirely.
+  const raw = JSON.parse(JSON.stringify({ type: 'FeatureCollection', features: features }));
+
+  thin(features, 0.012, 0.004);
+  round(features, 3);
+  const fc = { type: 'FeatureCollection', features: features };
+  emit('china.js', 'DATA_CHINA', { regions: Object.keys(CN_REGIONS), provinces: fc });
+  return { display: fc, raw: raw };
+}
+
 /* ----------------------------------------------------------------- CITIES */
 const G = { name: 1, ascii: 2, lat: 4, lon: 5, fcode: 7, country: 8, pop: 14 };
 
@@ -281,17 +455,46 @@ function haversine(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function buildCities(japanFC, franceDepFC) {
-  const lines = fs.readFileSync(path.join(RAW, 'jpfr.txt'), 'utf8').split('\n').filter(Boolean);
-  // GeoNames column 1 keeps diacritics (Nîmes, Besançon); column 2 is stripped
-  // ASCII, which we keep only for accent-insensitive matching.
-  const RENAME = { 'Nara-shi': 'Nara', 'Dunkirk': 'Dunkerque' };
-  const rows = lines.map(l => l.split('\t')).map(c => ({
-    name: RENAME[c[G.name]] || c[G.name],
-    ascii: c[G.ascii],
-    lat: +c[G.lat], lon: +c[G.lon],
-    fcode: c[G.fcode], country: c[G.country], pop: +c[G.pop],
-  }));
+/**
+ * Rough km from a point to a feature, 0 if inside its bounding box.
+ *
+ * Used only to rescue a city that falls just outside a generalised outline.
+ * Distance to the *centroid* is not good enough: Shantou sits in far eastern
+ * Guangdong, and Fujian's centroid is almost exactly as close, so a centroid
+ * test can hand the city to the wrong province. A bounding box puts Shantou
+ * inside Guangdong and 17 km outside Fujian, which is the right answer.
+ */
+function distToBoxKm(feature, lon, lat) {
+  const [[w, s], [e, n]] = d3.geoBounds(feature);
+  const dLon = Math.max(w - lon, 0, lon - e);
+  const dLat = Math.max(s - lat, 0, lat - n);
+  return Math.hypot(dLon * Math.cos(lat * Math.PI / 180), dLat) * 111;
+}
+
+function nearestFeature(poly, lon, lat, maxKm) {
+  let best = null, bestD = Infinity;
+  for (const f of poly.features) {
+    const d = distToBoxKm(f, lon, lat);
+    if (d < bestD) { bestD = d; best = f; }
+  }
+  return bestD <= maxKm ? best : null;
+}
+
+function buildCities(japanFC, franceDepFC, chinaFC) {
+  const lines = ['jpfr.txt', 'cn-cities.txt']
+    .flatMap(f => fs.readFileSync(path.join(RAW, f), 'utf8').split('\n'))
+    .filter(Boolean);
+  // GeoNames column 1 keeps the local spelling (Nîmes, Ōita, Ürümqi); column 2
+  // is its own stripped ASCII, which we keep only for accent-blind matching.
+  const RENAME = { 'Nara-shi': 'Nara' };
+  const rows = lines.map(l => l.split('\t')).map(c => {
+    const local = RENAME[c[G.name]] || c[G.name];
+    return Object.assign(label(local), {
+      ascii: c[G.ascii],
+      lat: +c[G.lat], lon: +c[G.lon],
+      fcode: c[G.fcode], country: c[G.country], pop: +c[G.pop],
+    });
+  });
 
   // Tokyo's special wards and the big-city "-shi" duplicates are separate rows
   // in GeoNames; they would stack on top of each other on a city map.
@@ -314,7 +517,7 @@ function buildCities(japanFC, franceDepFC) {
   // Keep real settlements only: PPLX is a city district, PPLL a loose locality.
   const OK_FCODE = new Set(['PPL', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'PPLC', 'PPLG']);
 
-  function pick(cc, poly, keyProp, limit, minPop) {
+  function pick(cc, poly, keyProp, limit, minPop, mergeKm) {
     const cand = rows
       .filter(r => r.country === cc && r.pop >= minPop && OK_FCODE.has(r.fcode)
         && !DENY.has(r.name) && !DENY.has(r.ascii))
@@ -324,25 +527,80 @@ function buildCities(japanFC, franceDepFC) {
     for (const c of cand) {
       if (chosen.length >= limit) break;
       // collapse near-duplicates: one conurbation listed under several names
-      if (chosen.some(o => haversine(o, c) < 15)) continue;
-      const owner = poly.features.find(f => d3.geoContains(f, [c.lon, c.lat]));
-      if (!owner) continue; // offshore, or outside the mapped area
+      if (chosen.some(o => haversine(o, c) < (mergeKm || 15))) continue;
+      // A coastal or border city can fall just outside a generalised outline.
+      let owner = poly.features.find(f => d3.geoContains(f, [c.lon, c.lat]))
+        || nearestFeature(poly, c.lon, c.lat, 25);
+      if (!owner) continue; // genuinely offshore, or outside the mapped area
       const entry = {
         name: c.name,
         lat: +c.lat.toFixed(4), lon: +c.lon.toFixed(4), pop: c.pop,
         parent: owner.properties.name,
       };
       entry[keyProp] = owner.properties.id;
-      if (c.ascii && c.ascii !== c.name) entry.ascii = c.ascii;
+      if (c.nameLocal) entry.nameLocal = c.nameLocal;
       chosen.push(entry);
     }
     return chosen;
   }
 
+  /**
+   * China is picked from a named list rather than by population rank.
+   *
+   * GeoNames' Chinese population figures are prefecture-level administrative
+   * totals, not urban populations, so ranking by them is badly skewed: the
+   * record for Wuzhong carries the whole of Ningxia's 7.2 million, which put a
+   * small city ahead of Qingdao, while genuinely major cities sat below the
+   * cut. The list below is the 31 province-level capitals plus the largest
+   * non-capital cities — the ones actually worth learning. Coordinates and
+   * populations still come from GeoNames.
+   */
+  const CN_CITY_LIST = [
+    // the four municipalities and every provincial capital
+    'Beijing', 'Shanghai', 'Chongqing', 'Tianjin',
+    'Shijiazhuang', 'Taiyuan', 'Hohhot', 'Shenyang', 'Changchun', 'Harbin',
+    'Nanjing', 'Hangzhou', 'Hefei', 'Fuzhou', 'Nanchang', 'Jinan', 'Zhengzhou',
+    'Wuhan', 'Changsha', 'Guangzhou', 'Nanning', 'Haikou', 'Chengdu', 'Guiyang',
+    'Kunming', 'Lhasa', "Xi'an", 'Lanzhou', 'Xining', 'Yinchuan', 'Urumqi',
+    // major non-capitals
+    'Shenzhen', 'Dongguan', 'Foshan', 'Zhuhai', 'Shantou', 'Suzhou', 'Wuxi',
+    'Xuzhou', 'Ningbo', 'Wenzhou', 'Qingdao', 'Yantai', 'Dalian', 'Xiamen',
+    'Quanzhou', 'Luoyang', 'Yichang', 'Baotou', 'Tangshan', 'Datong',
+    'Kashgar', 'Sanya', 'Guilin', 'Handan',
+  ];
+
+  function pickNamed(cc, poly, keyProp, names) {
+    const byName = new Map();
+    for (const r of rows) {
+      if (r.country !== cc) continue;
+      const prev = byName.get(r.name);
+      if (!prev || r.pop > prev.pop) byName.set(r.name, r);   // keep the biggest
+    }
+    const out = [], missing = [];
+    for (const wanted of names) {
+      const c = byName.get(wanted);
+      if (!c) { missing.push(wanted); continue; }
+      const owner = poly.features.find(f => d3.geoContains(f, [c.lon, c.lat]))
+        || nearestFeature(poly, c.lon, c.lat, 60);
+      if (!owner) { missing.push(wanted + ' (no division)'); continue; }
+      const entry = {
+        name: c.name,
+        lat: +c.lat.toFixed(4), lon: +c.lon.toFixed(4), pop: c.pop,
+        parent: owner.properties.name,
+      };
+      entry[keyProp] = owner.properties.id;
+      if (c.nameLocal) entry.nameLocal = c.nameLocal;
+      out.push(entry);
+    }
+    if (missing.length) console.warn('  ! ' + cc + ' cities not matched: ' + missing.join(', '));
+    return out.sort((a, b) => b.pop - a.pop);
+  }
+
   const jp = pick('JP', japanFC, 'prefecture', 55, 150000);
   const fr = pick('FR', franceDepFC, 'department', 55, 55000);
-  emit('cities.js', 'DATA_CITIES', { JP: jp, FR: fr });
-  return { jp: jp, fr: fr };
+  const cn = pickNamed('CN', chinaFC, 'province', CN_CITY_LIST);
+  emit('cities.js', 'DATA_CITIES', { JP: jp, FR: fr, CN: cn });
+  return { jp: jp, fr: fr, cn: cn };
 }
 
 /* -------------------------------------------------------------------- run */
@@ -351,9 +609,10 @@ const world = buildWorld();
 buildCountryInfo(world);
 const jp = buildJapan();
 const fr = buildFrance();
-const cities = buildCities(jp, fr.departments);
+const cn = buildChina();
+const cities = buildCities(jp, fr.departments, cn.raw);
 const last = a => a[a.length - 1];
-console.log('\nJapan cities:  ' + cities.jp.length + '  (top ' + cities.jp[0].name
-  + ', smallest ' + last(cities.jp).name + ' @ ' + last(cities.jp).pop.toLocaleString() + ')');
-console.log('France cities: ' + cities.fr.length + '  (top ' + cities.fr[0].name
-  + ', smallest ' + last(cities.fr).name + ' @ ' + last(cities.fr).pop.toLocaleString() + ')');
+for (const [label_, list] of [['Japan', cities.jp], ['France', cities.fr], ['China', cities.cn]]) {
+  console.log('\n' + label_ + ' cities: ' + list.length + '  (top ' + list[0].name
+    + ', smallest ' + last(list).name + ' @ ' + last(list).pop.toLocaleString('en-US') + ')');
+}

@@ -790,3 +790,112 @@ kbd {
   .confirm-bar .btn-primary { flex: 1; padding: 13px 16px; font-size: 15px; justify-content: center; }
   .confirm-bar .btn-ghost { flex: none; padding: 13px 18px; font-size: 15px; }
 }
+
+/* ============================================================ the picker
+   Choosing which items of a deck get asked about. Chips rather than a list of
+   checkboxes: 96 départements as rows is a scroll, as chips it is a glance. */
+
+.picker {
+  margin-top: 24px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.picker-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.picker-count {
+  margin-left: auto;
+  font: 600 12px var(--mono);
+  color: var(--ink-soft);
+}
+.picker-count.is-subset { color: var(--gold); }
+.picker-count.is-empty { color: var(--bad); }
+.picker-blurb {
+  margin: 10px 0 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+
+.picker-tools { display: grid; gap: 10px; margin-bottom: 4px; }
+.picker-search {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px var(--sans);
+}
+.picker-search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.picker-groups {
+  max-height: 420px;
+  overflow-y: auto;
+  margin-top: 14px;
+  padding-right: 4px;
+}
+.picker-group + .picker-group { margin-top: 14px; }
+
+.picker-group-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 5px 2px;
+  margin-bottom: 7px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-soft);
+  font: 600 11px var(--sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+}
+.picker-group-head:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.picker-group-n { margin-left: auto; font-family: var(--mono); letter-spacing: 0; }
+
+.picker-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.picker-chip {
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: 500 13px var(--sans);
+  cursor: pointer;
+}
+.picker-chip:hover { border-color: var(--accent); color: var(--ink); }
+.picker-chip.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* Explore ignores the selection, so dim its card when one is active */
+.card.is-muted { opacity: .62; }
+
+/* how the home card and the in-round breadcrumb flag an active subset */
+.deck-subset {
+  margin-top: 3px;
+  font: 700 11px var(--sans);
+  color: var(--gold);
+  letter-spacing: .02em;
+}
+.crumb-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 700 11px var(--mono);
+}
+
+@media (max-width: 620px) {
+  .picker { padding: 14px; }
+  .picker-groups { max-height: 340px; }
+  .picker-chip { padding: 8px 12px; font-size: 13.5px; }
+}

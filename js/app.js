@@ -110,9 +110,13 @@
     card.type = 'button';
     card.appendChild(ring(pct));
 
+    const sel = window.Store.selection(deck.id);
     const body = el('div', 'deck-body');
     body.innerHTML = '<div class="deck-title">' + esc(deck.title) + '</div>'
       + '<div class="deck-sub">' + esc(deck.subtitle) + ' · ' + p.total + '</div>'
+      + (sel
+        ? '<div class="deck-subset">practising ' + sel.length + ' of ' + p.total + '</div>'
+        : '')
       + (p.due ? '<div class="deck-due">' + p.due + ' due for review</div>' : '');
     card.appendChild(body);
     card.onclick = () => { location.hash = '#/deck/' + deck.id; };
@@ -149,16 +153,40 @@
       + (p.seen ? p.learned + ' learned, ' + p.due + ' due for review.' : 'Not started yet.');
     root.appendChild(lede);
 
+    // reflects the current selection, and stays in step as it is edited
+    const scope = el('div', 'note');
+    scope.style.margin = '0 0 18px';
+    root.appendChild(scope);
+
     const grid = el('div', 'school-grid');
     grid.append(
       modeCard('Explore', 'Browse the map freely and read about anything you click. '
         + 'Start here if the set is new to you.', () => go(id, 'learn')),
-      modeCard('Find it', 'A name appears; you click it on the map. This is the mode that '
-        + 'builds real spatial memory.', () => go(id, 'locate')),
+      modeCard('Find it', 'A name appears; you click it on the map, then confirm. This is '
+        + 'the mode that builds real spatial memory.', () => go(id, 'locate')),
       modeCard('Name it', 'A shape lights up; you choose its name. Tests recall in the '
         + 'opposite direction.', () => go(id, 'identify')),
     );
     root.appendChild(grid);
+
+    root.appendChild(window.Picker.render(deck, paintScope));
+    paintScope(window.Store.selection(id));
+
+    function paintScope(sel) {
+      const n = sel ? sel.length : ids.length;
+      if (!sel) {
+        scope.innerHTML = 'Practising <strong>all ' + ids.length + '</strong>. '
+          + 'Pick a subset below to drill just those.';
+      } else if (!n) {
+        scope.innerHTML = '<strong>Nothing is selected</strong>, so a round has nothing '
+          + 'to ask. Switch some back on below.';
+      } else {
+        scope.innerHTML = 'Practising <strong>' + n + ' of ' + ids.length + '</strong> — '
+          + 'the rest are still drawn on the map, they just will not be asked about.';
+      }
+      // Explore ignores the selection: browsing a cut-down map makes no sense
+      grid.children[0].classList.toggle('is-muted', !!sel);
+    }
 
     const row = el('div', 'btn-row');
     row.style.marginTop = '22px';

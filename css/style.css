@@ -722,18 +722,64 @@ kbd {
   .map-tools { display: none; }
 }
 
-/* The Confirm / Pick another pair in Find it. In the side panel on a desktop;
-   pinned to the bottom of the screen on a phone, because the panel itself can
-   sit below the fold and this is the only control the question needs. */
-.confirm-bar { display: flex; flex-direction: column; gap: 8px; }
-.confirm-bar .btn { width: 100%; justify-content: center; }
+/* ---------------------------------------------------- the confirm question
+   Find it asks "Is this X?" next to the place you clicked, so the answer is
+   where your eyes already are. Two presentations, never both at once:
+   a popover on the map for pointers, a bar pinned to the bottom of the screen
+   for thumbs. */
+
+.map-pop {
+  position: absolute;
+  z-index: 6;
+  min-width: 158px;
+  padding: 10px 11px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12), 0 16px 36px -16px rgba(0,0,0,.5);
+}
+.map-pop-q {
+  margin: 0 0 9px;
+  font-size: 13.5px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ink);
+}
+.map-pop-q strong { color: var(--accent); }
+.map-pop-row { display: flex; gap: 6px; }
+.map-pop-row .btn { flex: 1; justify-content: center; padding: 7px 10px; }
+
+/* the tail, kept over the real anchor even when the box has been clamped
+   against the edge of the map (--tail-x is set by mapview.js) */
+.map-pop::after {
+  content: '';
+  position: absolute;
+  left: var(--tail-x, 50%);
+  bottom: -7px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid var(--surface);
+  filter: drop-shadow(0 1px 0 var(--line));
+}
+.map-pop.is-below::after {
+  bottom: auto;
+  top: -7px;
+  border-top: 0;
+  border-bottom: 7px solid var(--surface);
+  filter: drop-shadow(0 -1px 0 var(--line));
+}
+
+/* the panel copy is for narrow screens only */
+.confirm-bar { display: none; }
 
 @media (max-width: 860px) {
+  .map-pop { display: none; }
   .confirm-bar {
+    display: flex;
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 30;
-    flex-direction: row;
     align-items: center;
     gap: 10px;
     padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -741,6 +787,6 @@ kbd {
     border-top: 1px solid var(--line);
     box-shadow: 0 -6px 20px -12px rgba(0,0,0,.45);
   }
-  .confirm-bar .btn-primary { flex: 1; padding: 13px 16px; font-size: 15px; }
-  .confirm-bar .btn-ghost { flex: none; }
+  .confirm-bar .btn-primary { flex: 1; padding: 13px 16px; font-size: 15px; justify-content: center; }
+  .confirm-bar .btn-ghost { flex: none; padding: 13px 18px; font-size: 15px; }
 }

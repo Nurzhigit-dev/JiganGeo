@@ -60,11 +60,14 @@ Three modes per set:
 - **Explore** — hover or tap anything and its name appears on the map, right
   under the pointer. Click for the full details. No scoring. Use this first.
 - **Find it** — a name appears, you click it on the map, then confirm. The first
-  click only marks your pick — it turns gold — and a second click on the same
-  place, the Confirm button, or Enter commits it. Nothing is scored until you
-  commit, so a misclick on a small département costs nothing. The marked shape
-  is deliberately never named: being told what you just clicked would turn the
-  mode into clicking around and reading labels until the right name appeared.
+  click only marks your pick, turning it gold, and a small **Is this Bas-Rhin?**
+  popover opens right next to it with *Yes* and *No*. It stays pinned to that
+  spot through pan and zoom. A second click on the same place, or just Enter,
+  also commits. Nothing is scored until you commit, so a misclick on a small
+  département costs nothing. On a phone the popover gives way to a full-width
+  bar pinned to the bottom of the screen, where a thumb can reach it. The marked
+  shape is deliberately never named: being told what you just clicked would turn
+  the mode into clicking around reading labels until the right name appeared.
 - **Name it** — a shape lights up, you choose its name from five options.
 
 Names stay hidden while a question is live and come back the moment you answer,

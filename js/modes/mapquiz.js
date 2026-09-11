@@ -87,7 +87,7 @@
     resetBtn.onclick = () => map.resetZoom();
     map.onZoom = k => { resetBtn.hidden = k <= 1.02; };
 
-    map.onPick = id => onPick(id);
+    map.onPick = (id, feature, ev) => onPick(id, ev);
 
     /* ------------------------------------------------------------- modes */
     if (mode === 'learn') runLearn();
@@ -120,6 +120,7 @@
     function next() {
       state.answered = false;
       state.pending = null;
+      map.hideAnchor();
       map.clearStates();
       map.setInteractive(true);
       showNames(false);            // no free answers while the question is live
@@ -145,50 +146,74 @@
     }
 
     /**
-     * First click marks a pick, second confirms it. Deliberately never names
-     * the thing you clicked — that would turn Find it into a game of clicking
-     * around and reading labels until the right name appears.
+     * First click marks a pick, second confirms it.
+     *
+     * The question is asked in a popover pinned to the spot you clicked rather
+     * than in the side panel. A control on the opposite side of the screen from
+     * your cursor is the same hunting problem the floating name labels were
+     * added to solve. The panel keeps a reachable copy for narrow screens,
+     * where thumb reach beats proximity.
+     *
+     * It asks "Is this Aomori?" instead of naming what you clicked, because
+     * being told the name would reduce Find it to clicking around reading
+     * labels until the right one appeared.
      */
-    function selectPending(id) {
+    function selectPending(id, ev) {
       if (state.pending) map.setState(state.pending, null);
       state.pending = id;
       map.setState(id, 'pending');
 
-      panel.innerHTML = '<div class="eyebrow">Question ' + (state.idx + 1)
-        + ' of ' + queue.length + '</div>';
-
-      const q = el('p', 'answer-sub');
-      q.style.margin = '8px 0 12px';
-      q.innerHTML = 'Locked on the highlighted one. Still '
-        + '<strong>' + esc(state.current.name) + '</strong>?';
-      panel.appendChild(q);
-
-      // The buttons live in their own bar because on a narrow screen it is
-      // pinned to the bottom of the viewport — on a short phone the side panel
-      // falls below the fold, and the one control you need must not.
-      const bar = el('div', 'confirm-bar');
-
-      const yes = el('button', 'btn btn-primary', 'Confirm');
-      yes.onclick = () => resolve(id);
-
-      const again = el('button', 'btn btn-ghost btn-sm', 'Pick another');
-      again.onclick = () => {
+      const clear = () => {
         map.setState(state.pending, null);
         state.pending = null;
+        map.hideAnchor();
         askLocate(state.current);
       };
 
-      bar.append(yes, again);
-      panel.appendChild(bar);
+      /* on the map, at the click */
+      const pop = el('div');
+      const q = el('p', 'map-pop-q');
+      q.innerHTML = 'Is this <strong>' + esc(state.current.name) + '</strong>?';
+      const row = el('div', 'map-pop-row');
+      const yes = el('button', 'btn btn-primary btn-sm', 'Yes');
+      yes.type = 'button';
+      yes.onclick = () => resolve(id);
+      const no = el('button', 'btn btn-ghost btn-sm', 'No');
+      no.type = 'button';
+      no.onclick = clear;
+      row.append(yes, no);
+      pop.append(q, row);
+      if (ev) map.anchor(pop, ev.clientX, ev.clientY);
 
+      /* in the panel: a reminder, and the phone-reachable copy */
+      panel.innerHTML = '<div class="eyebrow">Question ' + (state.idx + 1)
+        + ' of ' + queue.length + '</div>';
       const hint = el('p', 'answer-sub');
-      hint.style.cssText = 'margin-top:10px;font-size:12px';
-      hint.textContent = 'Or click the same place again to confirm.';
+      hint.style.margin = '8px 0 0';
       panel.appendChild(hint);
 
-      // focus rather than a key handler, so Enter and Space work natively;
-      // preventScroll keeps a phone from jumping away from the map
-      try { yes.focus({ preventScroll: true }); } catch (e) { yes.focus(); }
+      const bar = el('div', 'confirm-bar');
+      const yes2 = el('button', 'btn btn-primary', 'Yes, this is ' + state.current.name);
+      yes2.type = 'button';
+      yes2.onclick = () => resolve(id);
+      const no2 = el('button', 'btn btn-ghost btn-sm', 'No');
+      no2.type = 'button';
+      no2.onclick = clear;
+      bar.append(yes2, no2);
+      panel.appendChild(bar);
+
+      // Only one of the two controls is on screen at a given width — CSS hides
+      // the other, which makes its offsetParent null. Point the hint and the
+      // keyboard focus at whichever one the reader can actually see.
+      const onMap = yes.offsetParent !== null;
+      hint.textContent = onMap
+        ? 'Answer on the map, or click the same place again.'
+        : 'Answer below, or tap the same place again.';
+
+      // focusing rather than binding a key handler means Enter and Space work
+      // natively; preventScroll stops a phone jumping away from the map
+      const active = onMap ? yes : yes2;
+      try { active.focus({ preventScroll: true }); } catch (e) { active.focus(); }
     }
 
     function askIdentify(item) {
@@ -235,15 +260,17 @@
     }
 
     /* ------------------------------------------------------------ answer */
-    function onPick(id) {
+    function onPick(id, ev) {
       if (mode === 'learn') { showInfo(byId.get(id) || { id, name: id, facts: [] }); return; }
       if (mode !== 'locate' || state.answered) return;
       if (state.pending === id) resolve(id);   // second click on the same place
-      else selectPending(id);
+      else selectPending(id, ev);
     }
 
     function resolve(guessId) {
       state.answered = true;
+      state.pending = null;
+      map.hideAnchor();
       map.setInteractive(false);
       const item = state.current;
       const correct = guessId === item.id;

@@ -66,6 +66,13 @@
       this.label.hidden = true;
       this.container.appendChild(this.label);
 
+      // an interactive popover pinned to a point on the map, used by Find it
+      // to put the confirm control where your eyes already are
+      this.pop = document.createElement('div');
+      this.pop.className = 'map-pop';
+      this.pop.hidden = true;
+      this.container.appendChild(this.pop);
+
       this._wireZoom();
       this._wireLabel();
     }
@@ -105,6 +112,7 @@
       this.svg.setAttribute('viewBox', `0 0 ${this.W} ${this.H}`);
       this.svg.classList.toggle('is-portrait', portrait);
 
+      this.hideAnchor();
       this.zoomLayer.innerHTML = '';
       this.defs.innerHTML = '';
       this.paths.clear();
@@ -173,11 +181,12 @@
           el._focusBox = core
             ? path.bounds({ type: 'Feature', properties: {}, geometry: core })
             : null;
-          el.addEventListener('click', () => {
+          el.addEventListener('click', ev => {
             // no stopPropagation: the svg-level listener that positions the
             // name label still needs to see this click, which is the only
             // way a touch device ever gets a label (taps have no hover).
-            if (this.onPick && !this._panned && !this._locked) this.onPick(id, f);
+            // `ev` is forwarded so callers can pin a popover to the click.
+            if (this.onPick && !this._panned && !this._locked) this.onPick(id, f, ev);
           });
           g.appendChild(el);
           if (!this.paths.has(id)) this.paths.set(id, []);
@@ -267,8 +276,8 @@
         hit.setAttribute('r', DOT_HIT);
         hit.setAttribute('class', 'map-dot-hit');
         hit.dataset.id = dot.id;
-        hit.addEventListener('click', () => {
-          if (this.onPick && !this._panned && !this._locked) this.onPick(dot.id, dot);
+        hit.addEventListener('click', ev => {
+          if (this.onPick && !this._panned && !this._locked) this.onPick(dot.id, dot, ev);
         });
 
         const c = document.createElementNS(NS, 'circle');
@@ -383,6 +392,56 @@
     }
 
     _hideLabel() { this.label.hidden = true; }
+
+    /* ------------------------------------------------------ pinned popover */
+    /**
+     * Pin `node` to the map point under (clientX, clientY) and keep it there
+     * through pan and zoom. The anchor is stored in *content* coordinates —
+     * the untransformed projection space — so panning moves the popover with
+     * the shape rather than leaving it stranded over open sea.
+     */
+    anchor(node, clientX, clientY) {
+      const vb = this._svgPoint({ clientX, clientY });
+      const t = this.transform;
+      this._anchorPt = { x: (vb.x - t.x) / t.k, y: (vb.y - t.y) / t.k };
+      this.pop.innerHTML = '';
+      this.pop.appendChild(node);
+      this.pop.hidden = false;
+      this._placeAnchor();
+    }
+
+    hideAnchor() {
+      this.pop.hidden = true;
+      this.pop.innerHTML = '';
+      this._anchorPt = null;
+    }
+
+    _placeAnchor() {
+      if (this.pop.hidden || !this._anchorPt) return;
+      const t = this.transform;
+      const r = this.svg.getBoundingClientRect();
+      const box = this.container.getBoundingClientRect();
+      if (!r.width) return;
+      const scale = r.width / this.W;
+      const px = (this._anchorPt.x * t.k + t.x) * scale + (r.left - box.left);
+      const py = (this._anchorPt.y * t.k + t.y) * scale + (r.top - box.top);
+
+      const pw = this.pop.offsetWidth, ph = this.pop.offsetHeight;
+      const GAP = 14;
+      let below = false;
+      let y = py - ph - GAP;
+      if (y < 6) { y = py + GAP; below = true; }          // no room above, flip
+      let x = px - pw / 2;
+      x = Math.max(6, Math.min(x, Math.max(6, box.width - pw - 6)));
+      y = Math.max(6, Math.min(y, Math.max(6, box.height - ph - 6)));
+
+      this.pop.style.left = x + 'px';
+      this.pop.style.top = y + 'px';
+      this.pop.classList.toggle('is-below', below);
+      // the tail follows the real anchor even when the box has been clamped
+      this.pop.style.setProperty('--tail-x',
+        Math.max(12, Math.min(px - x, pw - 12)) + 'px');
+    }
 
     /* -------------------------------------------------------- zoom & pan */
     _wireZoom() {
@@ -550,6 +609,7 @@
       this.zoomLayer.style.transition = animate ? 'transform .45s cubic-bezier(.4,0,.2,1)' : 'none';
       this.zoomLayer.setAttribute('transform', `translate(${t.x},${t.y}) scale(${t.k})`);
       this._sizeDots();
+      this._placeAnchor();
       if (this.onZoom) this.onZoom(t.k);
     }
   }

@@ -2,17 +2,24 @@
  * store.js — progress, spaced repetition and settings, persisted to
  * localStorage. Everything is per-item so a "deck" is just a set of item ids.
  *
- * Scheduling is a Leitner box system: a correct answer promotes an item one
- * box and pushes it further into the future, a wrong answer knocks it back to
- * box 1 so it returns inside the same session.
+ * Scheduling is a Leitner box system. A correct answer promotes an item and
+ * pushes it into the future; a wrong answer drops it to box 1, which comes
+ * back after a short relearning gap rather than instantly.
+ *
+ * That gap is the fix for a real bug. Box 1 used to have a zero interval, and a
+ * first correct answer landed in box 1 exactly like a wrong one did — so every
+ * item you had answered even once, right or wrong, was due again immediately,
+ * and because due items are served before new ones, "Another round" replayed
+ * the previous round's twenty questions every time.
  */
 (function () {
   'use strict';
 
   const KEY = 'mygeogame.v1';
+  const MIN = 60000;
   const DAY = 86400000;
-  // days until an item in each box comes back. Box 1 is "later today".
-  const INTERVALS = [0, 0, 1, 3, 7, 16, 40];
+  // how long until an item in each box is due again
+  const INTERVALS = [0, 10 * MIN, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 40 * DAY];
   const MAX_BOX = INTERVALS.length - 1;
 
   let state = load();
@@ -70,12 +77,14 @@
       it.s++;
       if (correct) {
         it.c++;
-        it.b = Math.min(it.b + 1, MAX_BOX);
+        // Right first time means you already knew it: skip the relearning box
+        // and see it again tomorrow. It must not share a box with a miss.
+        it.b = it.b === 0 ? 2 : Math.min(it.b + 1, MAX_BOX);
       } else {
         it.w++;
         it.b = 1;
       }
-      it.d = Date.now() + INTERVALS[it.b] * DAY;
+      it.d = Date.now() + INTERVALS[it.b];
       state.items[key] = it;
 
       state.totals.answered++;
@@ -86,25 +95,38 @@
     },
 
     /**
-     * Build a study queue for a deck.
-     * Due items come first (most overdue first), then unseen items, then —
-     * only if we still need more — the items closest to falling due.
+     * Build one round's questions for a deck. Every id appears at most once.
+     *
+     * A round is made of what is due (most overdue first) and what you have
+     * never seen. It is *not* topped up with items you answered recently, even
+     * if that leaves it short: a round of ten new questions is better than ten
+     * new ones and two you saw a minute ago, which is exactly the repetition
+     * people notice. Only when nothing at all is due or unseen — you have been
+     * through the whole deck and nothing has come back round yet — does it fall
+     * back to the items due soonest, so there is always something to play.
+     *
+     * The order is shuffled either way, so a small deck that has to reuse its
+     * items does not replay the last round word for word.
      */
     queue(deck, ids, size) {
       const now = Date.now();
-      const seen = [], fresh = [];
-      for (const id of ids) {
+      const due = [], fresh = [], later = [];
+      for (const id of new Set(ids)) {                 // no duplicates, ever
         const it = state.items[deck + ':' + id];
         if (!it) fresh.push(id);
-        else seen.push({ id, due: it.d, box: it.b });
+        else if (it.d <= now) due.push({ id, d: it.d });
+        else later.push({ id, d: it.d });
       }
-      const due = seen.filter(x => x.due <= now).sort((a, b) => a.due - b.due).map(x => x.id);
-      const later = seen.filter(x => x.due > now).sort((a, b) => a.due - b.due).map(x => x.id);
+      due.sort((a, b) => a.d - b.d);
+      later.sort((a, b) => a.d - b.d);
 
-      shuffle(fresh);
-      const out = due.concat(fresh);
-      if (out.length < size) out.push(...later);
-      return out.slice(0, size || out.length);
+      const want = size || ids.length;
+      const ready = due.map(x => x.id).concat(shuffle(fresh));
+      const picked = shuffle((ready.length ? ready : later.map(x => x.id)).slice(0, want));
+      // Flag the one case where repeats are unavoidable, so the round can say
+      // so instead of looking like the old bug.
+      picked.recycled = !ready.length && picked.length > 0;
+      return picked;
     },
 
     /** Mastery summary for a deck, for the home screen. */

@@ -78,6 +78,11 @@
     // A road receding to a vanishing point, so centre vs edge is unambiguous.
     'lines-white': roadScene('#f4f4f0', '#f4f4f0'),
     'lines-yellow': roadScene(YELLOW, '#f4f4f0'),
+    // Brazil paints its roads exactly like the USA, so the lines alone cannot
+    // tell them apart — the stop sign's language does. Drawing the same road
+    // twice made the drill ask one picture with two different right answers.
+    'lines-br': roadScene(YELLOW, '#f4f4f0', 'PARE'),
+    'lines-us': roadScene(YELLOW, '#f4f4f0', 'STOP'),
     'lines-za': roadScene('#f4f4f0', YELLOW),
 
     /* -------------------------------------------------------------- poles */
@@ -204,7 +209,14 @@
   };
 
   // A road running to a vanishing point. `centre` and `edge` are line colours.
-  function roadScene(centre, edge) {
+  function roadScene(centre, edge, stopWord) {
+    // an optional roadside stop sign, for when the language is the only tell
+    const sign = stopWord ? `
+      <rect x="138.4" y="48" width="2.2" height="30" fill="${STEEL}"/>
+      <path d="M134.5 30 H144.5 L149.5 35 V45 L144.5 50 H134.5 L129.5 45 V35 Z"
+            fill="${RED}" stroke="${WHITE}" stroke-width="1.4" stroke-linejoin="round"/>
+      <text x="139.5" y="42.6" font-size="${stopWord.length > 4 ? 5.4 : 6.2}" fill="${WHITE}"
+            text-anchor="middle" font-family="sans-serif" font-weight="700">${stopWord}</text>` : '';
     return `<svg viewBox="0 0 160 100" role="img">
       <rect x="0" y="0" width="160" height="38" fill="${SKY}"/>
       <rect x="0" y="38" width="160" height="62" fill="${GROUND}"/>
@@ -212,7 +224,7 @@
       <path d="M64.5 38 L16 100" stroke="${edge}" stroke-width="3" stroke-linecap="round"/>
       <path d="M95.5 38 L144 100" stroke="${edge}" stroke-width="3" stroke-linecap="round"/>
       <path d="M80 40 L80 100" stroke="${centre}" stroke-width="4" stroke-linecap="round"
-            stroke-dasharray="7 9" transform="translate(0,0)"/>
+            stroke-dasharray="7 9"/>${sign}
     </svg>`;
   }
 

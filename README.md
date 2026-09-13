@@ -153,21 +153,31 @@ means anything next to an Italian one.
 
 ## How the scheduling works
 
-Every item you answer goes into a Leitner box. A correct answer promotes it one
-box and pushes it further out; a wrong answer knocks it straight back to box 1
-so it returns before the session ends.
+Every item you answer goes into a Leitner box. A wrong answer drops it to box 1;
+a right answer promotes it. Getting something right the very first time you see
+it skips box 1 entirely, since you clearly already knew it.
 
 | Box | Comes back after |
 |---|---|
-| 1 | later today |
+| 1 | 10 minutes — your misses |
 | 2 | 1 day |
 | 3 | 3 days |
 | 4 | 7 days |
 | 5 | 16 days |
 | 6 | 40 days |
 
-A round pulls anything due first, then unseen items. "Learned" on the home
-screen means box 3 or higher.
+A round is built from whatever is due, then things you have never seen, and
+**never asks the same question twice in one round**. It is not topped up with
+questions you just answered, even if that makes it short — ten new questions
+beat ten new ones plus two you saw a minute ago. So on a big set, back-to-back
+rounds never overlap, and a miss comes back once its ten minutes are up rather
+than in the very next round.
+
+The one time a round has to reuse questions is when you have been through the
+whole set and nothing has come due yet. The round says so when that happens, and
+serves your recent misses first.
+
+"Learned" on the home screen means box 3 or higher.
 
 ---
 

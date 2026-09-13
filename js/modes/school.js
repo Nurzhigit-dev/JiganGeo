@@ -211,6 +211,13 @@
 
     const shell = el('div');
     shell.style.cssText = 'max-width:560px;margin:0 auto';
+    if (queue.recycled) {
+      const note = el('div', 'note');
+      note.style.cssText = 'max-width:560px;margin:0 auto 12px';
+      note.innerHTML = '<strong>You have seen every clue.</strong> None is due again yet, '
+        + 'so this round brings back the ones returning soonest.';
+      root.appendChild(note);
+    }
     root.appendChild(shell);
     ask();
 

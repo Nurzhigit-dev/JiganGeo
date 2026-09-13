@@ -246,15 +246,15 @@ window.DATA_META = {
     },
     {
       id: 'line-am', category: 'lines', answer: 'US',
-      title: 'Yellow centre line, white edge lines',
-      detail: 'The Americas. Yellow separates traffic going in opposite directions; white separates lanes going the same way. Seeing yellow in the middle rules out nearly all of Europe.',
-      svg: 'lines-yellow',
+      title: 'Yellow centre line, white edge lines, STOP sign',
+      detail: 'The Americas. Yellow separates traffic going in opposite directions; white separates lanes going the same way. Seeing yellow in the middle rules out nearly all of Europe — and an English STOP settles the USA over Brazil.',
+      svg: 'lines-us',
     },
     {
       id: 'line-br', category: 'lines', answer: 'BR',
-      title: 'Yellow centre line with Portuguese signage',
-      detail: 'Brazil. The line pattern matches the USA, so the language does the work: PARE on the stop sign, and -ção word endings.',
-      svg: 'lines-yellow',
+      title: 'Yellow centre line, white edge lines, PARE sign',
+      detail: 'Brazil. The line pattern is identical to the USA, so the language does the work: PARE on the stop sign, and -ção word endings on everything else.',
+      svg: 'lines-br',
     },
     {
       id: 'line-za', category: 'lines', answer: 'ZA',

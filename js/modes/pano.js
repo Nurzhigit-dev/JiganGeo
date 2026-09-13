@@ -61,7 +61,13 @@
       root.appendChild(warn);
     }
 
-    const state = { i: 0, score: 0, answered: false, current: null };
+    // Countries are dealt without replacement. Drawing one at random per
+    // question meant nine rounds in ten asked about the same country twice,
+    // since five questions were being drawn from only six countries.
+    const state = {
+      i: 0, score: 0, answered: false, current: null,
+      order: window.Store.shuffle(Object.keys(BOXES).slice()).slice(0, ROUND),
+    };
 
     const layout = el('div', 'quiz');
     const main = el('div', 'quiz-main');
@@ -100,7 +106,7 @@
       frame.innerHTML = '<div class="pano-empty">Loading imagery…</div>';
       panel.innerHTML = '<div class="eyebrow">Look, then choose</div>';
 
-      const code = pick(Object.keys(BOXES));
+      const code = state.order[state.i];   // "Try again" retries the same country
       let img;
       try {
         img = await fetchImage(token, code);

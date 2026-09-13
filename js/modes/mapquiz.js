@@ -50,6 +50,7 @@
     root.className = 'app is-wide';
     root.innerHTML = '';
     root.appendChild(crumb(deck, mode, selection ? inPlay.length + ' of ' + items.length : null));
+    if (queue.recycled) root.appendChild(recycledNote());
 
     const wrap = el('div', 'quiz');
     const main = el('div', 'quiz-main');
@@ -418,6 +419,19 @@
 
       panel.append(again, back);
     }
+  }
+
+  /**
+   * Shown when a round had to reuse questions: every item in the set has been
+   * answered and none has come due again yet.
+   */
+  function recycledNote() {
+    const n = el('div', 'note');
+    n.style.margin = '0 0 12px';
+    n.innerHTML = '<strong>You have been through this whole set.</strong> Nothing is due '
+      + 'again yet, so this round brings back the ones returning soonest — your recent '
+      + 'misses first. Anything you get right now waits a day before it is asked again.';
+    return n;
   }
 
   /** Reached when a deck has a selection but nothing is switched on in it. */

@@ -18,6 +18,14 @@ You can also just open `index.html` directly — everything works from `file://`
 except the panorama round, because browsers block requests to Mapillary from
 local files.
 
+**The app refreshes itself when its files change.** It is a single-page app, so
+moving between decks and rounds never reloads its code — a tab left open across
+an update would otherwise keep running the old version indefinitely, looking
+exactly like a fix that did not work. When served by `start.bat` it checks its
+own files whenever you come back to the tab or start a screen or round, and
+reloads if anything changed, landing you on the same screen. Opened as a plain
+file it cannot read those timestamps, so refresh by hand after an update.
+
 ### On a phone
 
 The layout is responsive and the map is built for touch. Two things change on a

@@ -16,6 +16,8 @@
   const el = window.h, esc = window.esc;
 
   function start(root, deckId, mode) {
+    // "Another round" restarts here without a route change, so check here too
+    if (window.Freshness) window.Freshness.check();
     const deck = window.Decks.get(deckId);
     if (!deck) { root.innerHTML = '<div class="empty">Unknown deck.</div>'; return; }
 

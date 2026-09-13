@@ -40,6 +40,8 @@
     const path = (location.hash || '#/').slice(1) || '/';
     // release any map from the view we are leaving before building the next one
     window.MapView.destroyAll();
+    // and make sure the code about to run this screen is the code on disk
+    window.Freshness.check();
     root.className = 'app';
     window.scrollTo(0, 0);
     for (const [re, fn] of routes) {

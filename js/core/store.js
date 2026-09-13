@@ -53,18 +53,25 @@
   let saveTimer = null;
   function save() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem(KEY, JSON.stringify(state));
-      } catch (e) {
-        console.warn('Could not save progress:', e.message);
-      }
-    }, 250);
+    saveTimer = setTimeout(writeNow, 250);
+  }
+
+  function writeNow() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('Could not save progress:', e.message);
+    }
   }
 
   const today = () => new Date().toISOString().slice(0, 10);
 
   const Store = {
+    /** Write any pending save now. Used before the page reloads itself. */
+    flush() { if (saveTimer) writeNow(); },
+
     /* ------------------------------------------------------------ items */
     get(deck, id) {
       return state.items[deck + ':' + id] || null;
